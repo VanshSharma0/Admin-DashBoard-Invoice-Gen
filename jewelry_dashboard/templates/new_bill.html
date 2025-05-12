@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}New Bill - Murti Jewellers{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Create New Bill</h2>
+    <form method="POST" id="bill-form">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Customer Information</h5>
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-2">
+                        <label for="customer_search" class="form-label">Search Customer</label>
+                        <input type="text" class="form-control" id="customer_search" placeholder="Type name or phone...">
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <label for="customer_dropdown" class="form-label">Select Customer</label>
+                        <select class="form-select" id="customer_dropdown">
+                            <option value="">-- Select --</option>
+                            {% for c in customers %}
+                            <option value="{{ c.id }}">{{ c.name }} ({{ c.phone }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div id="customer-fields">
+                    <div class="row mb-2">
+                        <div class="col-md-4">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" name="customer_name" id="customer_name" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" name="phone" id="phone">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">GSTIN</label>
+                            <input type="text" class="form-control" name="gstin" id="gstin">
+                        </div>
+                    </div>
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Address</label>
+                            <input type="text" class="form-control" name="address" id="address">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">State</label>
+                            <input type="text" class="form-control" name="state" id="state">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">State Code</label>
+                            <input type="text" class="form-control" name="state_code" id="state_code">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Items</h5>
+                <table class="table table-bordered" id="items-table">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Description of Goods</th>
+                            <th>Qty</th>
+                            <th>Gross Wt. (gm)</th>
+                            <th>Net Wt. (gm)</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+                <button type="button" class="btn btn-success" id="add-item">Add Item</button>
+            </div>
+        </div>
+        <div class="card mb-4">
+            <div class="card-body">
+                <h5>Payment Details</h5>
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Payment Method</label>
+                        <select class="form-select" name="payment_method" id="payment_method">
+                            <option value="Cash">Cash</option>
+                            <option value="UPI">UPI</option>
+                            <option value="Card">Card</option>
+                            <option value="Bank Transfer">Bank Transfer</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">UPI</label>
+                        <input type="text" class="form-control" name="upi" id="upi">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Card</label>
+                        <input type="text" class="form-control" name="card" id="card">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">GST (%)</label>
+                        <input type="number" class="form-control" name="gst" id="gst" value="3">
+                    </div>
+                </div>
+                <div class="row mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label">SGST (%)</label>
+                        <input type="number" class="form-control" name="sgst" id="sgst" value="1.5">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">CGST (%)</label>
+                        <input type="number" class="form-control" name="cgst" id="cgst" value="1.5">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Discount</label>
+                        <input type="number" class="form-control" name="discount" id="discount" value="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Making Charges</label>
+                        <input type="number" class="form-control" name="making_charges" id="making_charges" value="0">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="mb-4 text-end">
+            <button type="submit" class="btn btn-primary btn-lg">Save & Generate Bill</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// --- Customer Search & Autofill ---
+const customers = {{ customers|tojson }};
+
+// Autocomplete search
+let searchTimeout = null;
+document.getElementById('customer_search').addEventListener('input', function() {
+    const q = this.value;
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        fetch(`/api/customers/search?q=${encodeURIComponent(q)}`)
+            .then(res => res.json())
+            .then(data => {
+                // Show suggestions (simple alert for now, can be improved)
+                if (data.length > 0) {
+                    const c = data[0];
+                    autofillCustomer(c);
+                    document.getElementById('customer_dropdown').value = c.id;
+                }
+            });
+    }, 300);
+});
+
+// Dropdown selection
+const dropdown = document.getElementById('customer_dropdown');
+dropdown.addEventListener('change', function() {
+    const id = this.value;
+    if (id) {
+        fetch(`/api/customers/${id}`)
+            .then(res => res.json())
+            .then(c => autofillCustomer(c));
+    } else {
+        autofillCustomer({});
+    }
+});
+
+function autofillCustomer(c) {
+    document.getElementById('customer_name').value = c.name || '';
+    document.getElementById('phone').value = c.phone || '';
+    document.getElementById('gstin').value = c.gstin || '';
+    document.getElementById('address').value = c.address || '';
+    document.getElementById('state').value = c.state || '';
+    document.getElementById('state_code').value = c.state_code || '';
+}
+
+// --- Dynamic Items Table ---
+function addItemRow(data={}) {
+    const tbody = document.querySelector('#items-table tbody');
+    const row = document.createElement('tr');
+    const idx = tbody.children.length + 1;
+    row.innerHTML = `
+        <td>${idx}</td>
+        <td><input type="text" name="description[]" class="form-control" value="${data.description||''}" required></td>
+        <td><input type="number" name="qty[]" class="form-control" min="1" value="${data.qty||1}" required></td>
+        <td><input type="number" name="gross_wt[]" class="form-control" step="0.01" value="${data.gross_wt||''}"></td>
+        <td><input type="number" name="net_wt[]" class="form-control" step="0.01" value="${data.net_wt||''}"></td>
+        <td><input type="number" name="rate[]" class="form-control" step="0.01" value="${data.rate||''}" required></td>
+        <td><input type="number" name="amount[]" class="form-control" step="0.01" value="${data.amount||''}" required></td>
+        <td><button type="button" class="btn btn-danger btn-sm remove-item">Remove</button></td>
+    `;
+    tbody.appendChild(row);
+    row.querySelector('.remove-item').onclick = function() {
+        row.remove();
+        updateItemNumbers();
+    };
+}
+function updateItemNumbers() {
+    const rows = document.querySelectorAll('#items-table tbody tr');
+    rows.forEach((row, i) => {
+        row.children[0].textContent = i+1;
+    });
+}
+document.getElementById('add-item').onclick = () => addItemRow();
+// Add one row by default
+addItemRow();
+</script>
+{% endblock %} 

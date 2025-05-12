@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Murti Jewellers{% endblock %}
+
+{% block content %}
+<h2 class="mb-4">Dashboard</h2>
+
+<div class="row">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title">Total Sales</h5>
+                <h3 class="card-text" id="total-sales">₹0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title">Total Items</h5>
+                <h3 class="card-text" id="total-items">0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title">Gold Sales</h5>
+                <h3 class="card-text" id="gold-sales">₹0</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="card-body">
+                <h5 class="card-title">Silver Sales</h5>
+                <h3 class="card-text" id="silver-sales">₹0</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Sales by Category</h5>
+                <div id="sales-by-category"></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Sales Distribution</h5>
+                <div id="sales-distribution"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Recent Sales</h5>
+                <div class="table-responsive">
+                    <table class="table" id="recent-sales">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Metal Type</th>
+                                <th>Category</th>
+                                <th>Sub-Category</th>
+                                <th>Quantity</th>
+                                <th>Amount</th>
+                                <th>Payment Method</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function formatCurrency(amount) {
+    return '₹' + amount.toLocaleString('en-IN', {maximumFractionDigits: 2});
+}
+
+function updateDashboard() {
+    fetch('/api/summary')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('total-sales').textContent = formatCurrency(data.total_sales);
+            document.getElementById('total-items').textContent = data.total_items;
+            document.getElementById('gold-sales').textContent = formatCurrency(data.gold_sales);
+            document.getElementById('silver-sales').textContent = formatCurrency(data.silver_sales);
+        });
+
+    fetch('/api/sales')
+        .then(response => response.json())
+        .then(data => {
+            // Update recent sales table
+            const tbody = document.querySelector('#recent-sales tbody');
+            tbody.innerHTML = '';
+            data.slice(-5).reverse().forEach(sale => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${sale.date}</td>
+                    <td>${sale.metal_type}</td>
+                    <td>${sale.category}</td>
+                    <td>${sale.sub_category}</td>
+                    <td>${sale.quantity}</td>
+                    <td>${formatCurrency(sale.total_amount)}</td>
+                    <td>${sale.payment_method}</td>
+                    <td>
+                        <button class="btn btn-danger btn-sm" onclick="deleteSale(${sale.id})">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+
+            // Create sales by category chart
+            const categoryData = {};
+            data.forEach(sale => {
+                if (!categoryData[sale.category]) {
+                    categoryData[sale.category] = 0;
+                }
+                categoryData[sale.category] += sale.total_amount;
+            });
+
+            const categoryChart = {
+                x: Object.keys(categoryData),
+                y: Object.values(categoryData),
+                type: 'bar',
+                marker: {
+                    color: '#007bff'
+                }
+            };
+
+            Plotly.newPlot('sales-by-category', [categoryChart], {
+                margin: { t: 0, b: 40, l: 40, r: 0 },
+                height: 300
+            });
+
+            // Create sales distribution chart
+            const metalData = {
+                Gold: data.filter(sale => sale.metal_type === 'Gold')
+                    .reduce((sum, sale) => sum + sale.total_amount, 0),
+                Silver: data.filter(sale => sale.metal_type === 'Silver')
+                    .reduce((sum, sale) => sum + sale.total_amount, 0)
+            };
+
+            const distributionChart = {
+                values: Object.values(metalData),
+                labels: Object.keys(metalData),
+                type: 'pie',
+                marker: {
+                    colors: ['#ffd700', '#c0c0c0']
+                }
+            };
+
+            Plotly.newPlot('sales-distribution', [distributionChart], {
+                margin: { t: 0, b: 0, l: 0, r: 0 },
+                height: 300
+            });
+        });
+}
+
+function deleteSale(saleId) {
+    if (confirm('Are you sure you want to delete this sale?')) {
+        fetch(`/api/sales/${saleId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert('Sale deleted successfully');
+            updateDashboard(); // Refresh the dashboard
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error deleting sale');
+        });
+    }
+}
+
+// Update dashboard every 30 seconds
+updateDashboard();
+setInterval(updateDashboard, 30000);
+</script>
+{% endblock %} 

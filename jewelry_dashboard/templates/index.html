@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Murti Jewellers{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card mt-5">
+                <div class="card-body text-center">
+                    <h1 class="display-4 mb-4">Welcome to Murti Jewellers</h1>
+                    <p class="lead">Your complete jewelry sales management solution</p>
+                    <hr class="my-4">
+                    <p>Please login to access the dashboard and manage your sales.</p>
+                    <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
