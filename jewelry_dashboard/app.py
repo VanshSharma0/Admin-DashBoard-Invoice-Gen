@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from datetime import datetime
 import os
 from werkzeug.security import generate_password_hash, check_password_hash
+import tempfile
+from weasyprint import HTML
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -184,9 +186,117 @@ def delete_sale(sale_id):
 def new_bill():
     customers = Customer.query.all()
     if request.method == 'POST':
-        # Handle bill creation (to be implemented)
-        pass
+        try:
+            # --- Customer Handling ---
+            customer_id = request.form.get('customer_id')
+            name = request.form.get('customer_name')
+            phone = request.form.get('phone')
+            gstin = request.form.get('gstin')
+            address = request.form.get('address')
+            state = request.form.get('state')
+            state_code = request.form.get('state_code')
+            
+            if customer_id:
+                customer = Customer.query.get(int(customer_id))
+            else:
+                customer = Customer(
+                    name=name,
+                    phone=phone,
+                    gstin=gstin,
+                    address=address,
+                    state=state,
+                    state_code=state_code
+                )
+                db.session.add(customer)
+                db.session.flush()  # Get the customer ID without committing
+
+            # --- Bill Creation ---
+            bill = Bill(
+                customer_id=customer.id,
+                customer_name=customer.name,
+                phone=customer.phone,
+                gstin=customer.gstin,
+                address=customer.address,
+                state=customer.state,
+                state_code=customer.state_code,
+                payment_method=request.form.get('payment_method'),
+                upi=request.form.get('upi'),
+                card=request.form.get('card'),
+                gst=float(request.form.get('gst', 3)),
+                sgst=float(request.form.get('sgst', 1.5)),
+                cgst=float(request.form.get('cgst', 1.5)),
+                discount=float(request.form.get('discount', 0)),
+                making_charges=float(request.form.get('making_charges', 0))
+            )
+            db.session.add(bill)
+            db.session.flush()  # Get the bill ID without committing
+
+            # --- Bill Items ---
+            descriptions = request.form.getlist('description[]')
+            quantities = request.form.getlist('qty[]')
+            gross_weights = request.form.getlist('gross_wt[]')
+            net_weights = request.form.getlist('net_wt[]')
+            rates = request.form.getlist('rate[]')
+            amounts = request.form.getlist('amount[]')
+
+            subtotal = 0
+            for i in range(len(descriptions)):
+                item = BillItem(
+                    bill_id=bill.id,
+                    description=descriptions[i],
+                    qty=int(quantities[i]),
+                    gross_wt=float(gross_weights[i]) if gross_weights[i] else None,
+                    net_wt=float(net_weights[i]) if net_weights[i] else None,
+                    rate=float(rates[i]),
+                    amount=float(amounts[i])
+                )
+                db.session.add(item)
+                subtotal += float(amounts[i])
+
+            # Calculate final total
+            gst_amount = (subtotal * bill.gst) / 100
+            bill.total = subtotal + gst_amount + bill.making_charges - bill.discount
+
+            # Generate PDF
+            html = render_template('bill_pdf.html', bill=bill)
+            pdf = HTML(string=html).write_pdf()
+            
+            # Save PDF
+            pdf_dir = os.path.join(app.instance_path, 'bills')
+            os.makedirs(pdf_dir, exist_ok=True)
+            pdf_path = os.path.join(pdf_dir, f'bill_{bill.id}.pdf')
+            with open(pdf_path, 'wb') as f:
+                f.write(pdf)
+            
+            bill.pdf_path = pdf_path
+            db.session.commit()
+            
+            flash('Bill created successfully!')
+            return redirect(url_for('bill_detail', bill_id=bill.id))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating bill: {str(e)}')
+            return redirect(url_for('new_bill'))
+            
     return render_template('new_bill.html', customers=customers)
+
+@app.route('/bills/<int:bill_id>')
+@login_required
+def bill_detail(bill_id):
+    bill = Bill.query.get_or_404(bill_id)
+    customer = bill.customer
+    items = bill.items
+    return render_template('bill_detail.html', bill=bill, customer=customer, items=items)
+
+@app.route('/bills/<int:bill_id>/pdf')
+@login_required
+def bill_pdf(bill_id):
+    bill = Bill.query.get_or_404(bill_id)
+    if not bill.pdf_path or not os.path.exists(bill.pdf_path):
+        flash('PDF not found.')
+        return redirect(url_for('bill_detail', bill_id=bill.id))
+    return send_file(bill.pdf_path, as_attachment=False)
 
 @app.route('/api/customers/search')
 @login_required
@@ -220,6 +330,60 @@ def get_customer(customer_id):
         'state': c.state,
         'state_code': c.state_code
     })
+
+@app.route('/api/preview-bill', methods=['POST'])
+@login_required
+def preview_bill():
+    try:
+        # Create a temporary bill object for preview
+        bill = Bill(
+            date=datetime.utcnow(),
+            customer_name=request.form.get('customer_name'),
+            phone=request.form.get('phone'),
+            gstin=request.form.get('gstin'),
+            address=request.form.get('address'),
+            state=request.form.get('state'),
+            state_code=request.form.get('state_code'),
+            payment_method=request.form.get('payment_method'),
+            upi=request.form.get('upi'),
+            card=request.form.get('card'),
+            gst=float(request.form.get('gst', 3)),
+            sgst=float(request.form.get('sgst', 1.5)),
+            cgst=float(request.form.get('cgst', 1.5)),
+            discount=float(request.form.get('discount', 0)),
+            making_charges=float(request.form.get('making_charges', 0))
+        )
+
+        # Create temporary bill items
+        descriptions = request.form.getlist('description[]')
+        quantities = request.form.getlist('qty[]')
+        gross_weights = request.form.getlist('gross_wt[]')
+        net_weights = request.form.getlist('net_wt[]')
+        rates = request.form.getlist('rate[]')
+        amounts = request.form.getlist('amount[]')
+
+        bill.items = []
+        subtotal = 0
+        for i in range(len(descriptions)):
+            item = BillItem(
+                description=descriptions[i],
+                qty=int(quantities[i]),
+                gross_wt=float(gross_weights[i]) if gross_weights[i] else None,
+                net_wt=float(net_weights[i]) if net_weights[i] else None,
+                rate=float(rates[i]),
+                amount=float(amounts[i])
+            )
+            bill.items.append(item)
+            subtotal += float(amounts[i])
+
+        # Calculate final total
+        gst_amount = (subtotal * bill.gst) / 100
+        bill.total = subtotal + gst_amount + bill.making_charges - bill.discount
+
+        # Render the preview
+        return render_template('bill_pdf.html', bill=bill)
+    except Exception as e:
+        return str(e), 400
 
 if __name__ == '__main__':
     with app.app_context():

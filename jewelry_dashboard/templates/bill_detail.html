@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Bill #{{ bill.id }} - Murti Jewellers{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Bill #{{ bill.id }}</h2>
+        <div>
+            <a href="{{ url_for('bill_pdf', bill_id=bill.id) }}" class="btn btn-primary" target="_blank">
+                <i class="fas fa-file-pdf"></i> View PDF
+            </a>
+            <a href="{{ url_for('new_bill') }}" class="btn btn-success">
+                <i class="fas fa-plus"></i> New Bill
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Bill Information</h5>
+                    <p><strong>Date:</strong> {{ bill.date.strftime('%d-%m-%Y') }}</p>
+                    <p><strong>Payment Method:</strong> {{ bill.payment_method }}</p>
+                    {% if bill.upi %}<p><strong>UPI:</strong> {{ bill.upi }}</p>{% endif %}
+                    {% if bill.card %}<p><strong>Card:</strong> {{ bill.card }}</p>{% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Customer Information</h5>
+                    <p><strong>Name:</strong> {{ bill.customer_name }}</p>
+                    {% if bill.phone %}<p><strong>Phone:</strong> {{ bill.phone }}</p>{% endif %}
+                    {% if bill.gstin %}<p><strong>GSTIN:</strong> {{ bill.gstin }}</p>{% endif %}
+                    {% if bill.address %}<p><strong>Address:</strong> {{ bill.address }}</p>{% endif %}
+                    {% if bill.state %}<p><strong>State:</strong> {{ bill.state }} ({{ bill.state_code }})</p>{% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Items</h5>
+            <div class="table-responsive">
+                <table class="table table-bordered">
+                    <thead>
+                        <tr>
+                            <th>S.No</th>
+                            <th>Description</th>
+                            <th>Qty</th>
+                            <th>Gross Wt.</th>
+                            <th>Net Wt.</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in bill.items %}
+                        <tr>
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.description }}</td>
+                            <td>{{ item.qty }}</td>
+                            <td>{{ "%.2f"|format(item.gross_wt) if item.gross_wt else "-" }}</td>
+                            <td>{{ "%.2f"|format(item.net_wt) if item.net_wt else "-" }}</td>
+                            <td>₹{{ "%.2f"|format(item.rate) }}</td>
+                            <td>₹{{ "%.2f"|format(item.amount) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Bill Summary</h5>
+            <div class="row">
+                <div class="col-md-6 offset-md-6">
+                    <table class="table table-sm">
+                        <tr>
+                            <td>Subtotal:</td>
+                            <td class="text-end">₹{{ "%.2f"|format(bill.total - (bill.total * bill.gst / 100) - bill.making_charges + bill.discount) }}</td>
+                        </tr>
+                        <tr>
+                            <td>GST ({{ "%.1f"|format(bill.gst) }}%):</td>
+                            <td class="text-end">₹{{ "%.2f"|format(bill.total * bill.gst / 100) }}</td>
+                        </tr>
+                        {% if bill.making_charges > 0 %}
+                        <tr>
+                            <td>Making Charges:</td>
+                            <td class="text-end">₹{{ "%.2f"|format(bill.making_charges) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if bill.discount > 0 %}
+                        <tr>
+                            <td>Discount:</td>
+                            <td class="text-end">₹{{ "%.2f"|format(bill.discount) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-primary">
+                            <td><strong>Total:</strong></td>
+                            <td class="text-end"><strong>₹{{ "%.2f"|format(bill.total) }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

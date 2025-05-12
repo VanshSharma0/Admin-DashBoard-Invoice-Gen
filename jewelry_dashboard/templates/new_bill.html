@@ -5,206 +5,341 @@
 {% block content %}
 <div class="container">
     <h2 class="mb-4">Create New Bill</h2>
-    <form method="POST" id="bill-form">
-        <div class="card mb-4">
-            <div class="card-body">
-                <h5>Customer Information</h5>
-                <div class="row mb-3">
-                    <div class="col-md-6 mb-2">
-                        <label for="customer_search" class="form-label">Search Customer</label>
-                        <input type="text" class="form-control" id="customer_search" placeholder="Type name or phone...">
-                    </div>
-                    <div class="col-md-6 mb-2">
-                        <label for="customer_dropdown" class="form-label">Select Customer</label>
-                        <select class="form-select" id="customer_dropdown">
-                            <option value="">-- Select --</option>
-                            {% for c in customers %}
-                            <option value="{{ c.id }}">{{ c.name }} ({{ c.phone }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-                <div id="customer-fields">
-                    <div class="row mb-2">
-                        <div class="col-md-4">
+    <form id="billForm" method="POST">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Customer Information</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Search Customer</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="customerSearch" placeholder="Search by name or phone">
+                                <button class="btn btn-outline-secondary" type="button" id="saveCustomerBtn">
+                                    <i class="fas fa-save"></i> Save Customer
+                                </button>
+                            </div>
+                            <div id="customerSearchResults" class="list-group mt-2" style="display: none;"></div>
+                        </div>
+                        <input type="hidden" name="customer_id" id="customerId">
+                        <div class="mb-3">
                             <label class="form-label">Name</label>
-                            <input type="text" class="form-control" name="customer_name" id="customer_name" required>
+                            <input type="text" class="form-control" name="customer_name" id="customerName" required>
                         </div>
-                        <div class="col-md-4">
+                        <div class="mb-3">
                             <label class="form-label">Phone</label>
-                            <input type="text" class="form-control" name="phone" id="phone">
+                            <input type="text" class="form-control" name="phone" id="customerPhone">
                         </div>
-                        <div class="col-md-4">
+                        <div class="mb-3">
                             <label class="form-label">GSTIN</label>
-                            <input type="text" class="form-control" name="gstin" id="gstin">
+                            <input type="text" class="form-control" name="gstin" id="customerGstin">
                         </div>
-                    </div>
-                    <div class="row mb-2">
-                        <div class="col-md-6">
+                        <div class="mb-3">
                             <label class="form-label">Address</label>
-                            <input type="text" class="form-control" name="address" id="address">
+                            <textarea class="form-control" name="address" id="customerAddress" rows="2"></textarea>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">State</label>
-                            <input type="text" class="form-control" name="state" id="state">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="mb-3">
+                                    <label class="form-label">State</label>
+                                    <input type="text" class="form-control" name="state" id="customerState">
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="mb-3">
+                                    <label class="form-label">State Code</label>
+                                    <input type="text" class="form-control" name="state_code" id="customerStateCode">
+                                </div>
+                            </div>
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label">State Code</label>
-                            <input type="text" class="form-control" name="state_code" id="state_code">
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Payment Information</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-select" name="payment_method" id="paymentMethod" required>
+                                <option value="Cash">Cash</option>
+                                <option value="UPI">UPI</option>
+                                <option value="Card">Card</option>
+                            </select>
+                        </div>
+                        <div class="mb-3" id="upiField" style="display: none;">
+                            <label class="form-label">UPI ID</label>
+                            <input type="text" class="form-control" name="upi" id="upiId">
+                        </div>
+                        <div class="mb-3" id="cardField" style="display: none;">
+                            <label class="form-label">Card Number</label>
+                            <input type="text" class="form-control" name="card" id="cardNumber">
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+
         <div class="card mb-4">
             <div class="card-body">
-                <h5>Items</h5>
-                <table class="table table-bordered" id="items-table">
-                    <thead>
-                        <tr>
-                            <th>S.No</th>
-                            <th>Description of Goods</th>
-                            <th>Qty</th>
-                            <th>Gross Wt. (gm)</th>
-                            <th>Net Wt. (gm)</th>
-                            <th>Rate</th>
-                            <th>Amount</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody></tbody>
-                </table>
-                <button type="button" class="btn btn-success" id="add-item">Add Item</button>
+                <h5 class="card-title">Items</h5>
+                <div class="table-responsive">
+                    <table class="table" id="itemsTable">
+                        <thead>
+                            <tr>
+                                <th>Description</th>
+                                <th>Qty</th>
+                                <th>Gross Wt.</th>
+                                <th>Net Wt.</th>
+                                <th>Rate</th>
+                                <th>Amount</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr class="item-row">
+                                <td><input type="text" class="form-control" name="description[]" required></td>
+                                <td><input type="number" class="form-control qty" name="qty[]" value="1" min="1" required></td>
+                                <td><input type="number" class="form-control gross-wt" name="gross_wt[]" step="0.01"></td>
+                                <td><input type="number" class="form-control net-wt" name="net_wt[]" step="0.01"></td>
+                                <td><input type="number" class="form-control rate" name="rate[]" step="0.01" required></td>
+                                <td><input type="number" class="form-control amount" name="amount[]" readonly></td>
+                                <td><button type="button" class="btn btn-danger btn-sm remove-row"><i class="fas fa-trash"></i></button></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="btn btn-secondary" id="addRow">
+                    <i class="fas fa-plus"></i> Add Item
+                </button>
             </div>
         </div>
+
         <div class="card mb-4">
             <div class="card-body">
-                <h5>Payment Details</h5>
-                <div class="row mb-2">
-                    <div class="col-md-3">
-                        <label class="form-label">Payment Method</label>
-                        <select class="form-select" name="payment_method" id="payment_method">
-                            <option value="Cash">Cash</option>
-                            <option value="UPI">UPI</option>
-                            <option value="Card">Card</option>
-                            <option value="Bank Transfer">Bank Transfer</option>
-                        </select>
+                <h5 class="card-title">Bill Summary</h5>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">GST (%)</label>
+                            <input type="number" class="form-control" name="gst" id="gst" value="3" step="0.1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Making Charges</label>
+                            <input type="number" class="form-control" name="making_charges" id="makingCharges" value="0" step="0.01">
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">UPI</label>
-                        <input type="text" class="form-control" name="upi" id="upi">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Card</label>
-                        <input type="text" class="form-control" name="card" id="card">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">GST (%)</label>
-                        <input type="number" class="form-control" name="gst" id="gst" value="3">
-                    </div>
-                </div>
-                <div class="row mb-2">
-                    <div class="col-md-3">
-                        <label class="form-label">SGST (%)</label>
-                        <input type="number" class="form-control" name="sgst" id="sgst" value="1.5">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">CGST (%)</label>
-                        <input type="number" class="form-control" name="cgst" id="cgst" value="1.5">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Discount</label>
-                        <input type="number" class="form-control" name="discount" id="discount" value="0">
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Making Charges</label>
-                        <input type="number" class="form-control" name="making_charges" id="making_charges" value="0">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Discount</label>
+                            <input type="number" class="form-control" name="discount" id="discount" value="0" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Total Amount</label>
+                            <input type="number" class="form-control" id="totalAmount" readonly>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div class="mb-4 text-end">
-            <button type="submit" class="btn btn-primary btn-lg">Save & Generate Bill</button>
+
+        <div class="d-flex justify-content-end gap-2">
+            <button type="button" class="btn btn-info" id="previewBill">
+                <i class="fas fa-eye"></i> Preview Bill
+            </button>
+            <button type="submit" class="btn btn-primary">
+                <i class="fas fa-save"></i> Save & Generate Bill
+            </button>
         </div>
     </form>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bill Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="previewContent">
+                <!-- Preview content will be loaded here -->
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// --- Customer Search & Autofill ---
-const customers = {{ customers|tojson }};
+document.addEventListener('DOMContentLoaded', function() {
+    // Customer search functionality
+    const customerSearch = document.getElementById('customerSearch');
+    const customerSearchResults = document.getElementById('customerSearchResults');
+    const customerId = document.getElementById('customerId');
+    const customerName = document.getElementById('customerName');
+    const customerPhone = document.getElementById('customerPhone');
+    const customerGstin = document.getElementById('customerGstin');
+    const customerAddress = document.getElementById('customerAddress');
+    const customerState = document.getElementById('customerState');
+    const customerStateCode = document.getElementById('customerStateCode');
+    const saveCustomerBtn = document.getElementById('saveCustomerBtn');
 
-// Autocomplete search
-let searchTimeout = null;
-document.getElementById('customer_search').addEventListener('input', function() {
-    const q = this.value;
-    if (searchTimeout) clearTimeout(searchTimeout);
-    searchTimeout = setTimeout(() => {
-        fetch(`/api/customers/search?q=${encodeURIComponent(q)}`)
-            .then(res => res.json())
-            .then(data => {
-                // Show suggestions (simple alert for now, can be improved)
-                if (data.length > 0) {
-                    const c = data[0];
-                    autofillCustomer(c);
-                    document.getElementById('customer_dropdown').value = c.id;
-                }
-            });
-    }, 300);
-});
+    let searchTimeout;
+    customerSearch.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value.trim();
+        if (query.length < 2) {
+            customerSearchResults.style.display = 'none';
+            return;
+        }
 
-// Dropdown selection
-const dropdown = document.getElementById('customer_dropdown');
-dropdown.addEventListener('change', function() {
-    const id = this.value;
-    if (id) {
-        fetch(`/api/customers/${id}`)
-            .then(res => res.json())
-            .then(c => autofillCustomer(c));
-    } else {
-        autofillCustomer({});
-    }
-});
-
-function autofillCustomer(c) {
-    document.getElementById('customer_name').value = c.name || '';
-    document.getElementById('phone').value = c.phone || '';
-    document.getElementById('gstin').value = c.gstin || '';
-    document.getElementById('address').value = c.address || '';
-    document.getElementById('state').value = c.state || '';
-    document.getElementById('state_code').value = c.state_code || '';
-}
-
-// --- Dynamic Items Table ---
-function addItemRow(data={}) {
-    const tbody = document.querySelector('#items-table tbody');
-    const row = document.createElement('tr');
-    const idx = tbody.children.length + 1;
-    row.innerHTML = `
-        <td>${idx}</td>
-        <td><input type="text" name="description[]" class="form-control" value="${data.description||''}" required></td>
-        <td><input type="number" name="qty[]" class="form-control" min="1" value="${data.qty||1}" required></td>
-        <td><input type="number" name="gross_wt[]" class="form-control" step="0.01" value="${data.gross_wt||''}"></td>
-        <td><input type="number" name="net_wt[]" class="form-control" step="0.01" value="${data.net_wt||''}"></td>
-        <td><input type="number" name="rate[]" class="form-control" step="0.01" value="${data.rate||''}" required></td>
-        <td><input type="number" name="amount[]" class="form-control" step="0.01" value="${data.amount||''}" required></td>
-        <td><button type="button" class="btn btn-danger btn-sm remove-item">Remove</button></td>
-    `;
-    tbody.appendChild(row);
-    row.querySelector('.remove-item').onclick = function() {
-        row.remove();
-        updateItemNumbers();
-    };
-}
-function updateItemNumbers() {
-    const rows = document.querySelectorAll('#items-table tbody tr');
-    rows.forEach((row, i) => {
-        row.children[0].textContent = i+1;
+        searchTimeout = setTimeout(() => {
+            fetch(`/api/customers/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(customers => {
+                    customerSearchResults.innerHTML = '';
+                    customers.forEach(customer => {
+                        const div = document.createElement('a');
+                        div.href = '#';
+                        div.className = 'list-group-item list-group-item-action';
+                        div.textContent = `${customer.name} (${customer.phone || 'No phone'})`;
+                        div.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            selectCustomer(customer);
+                        });
+                        customerSearchResults.appendChild(div);
+                    });
+                    customerSearchResults.style.display = customers.length ? 'block' : 'none';
+                });
+        }, 300);
     });
-}
-document.getElementById('add-item').onclick = () => addItemRow();
-// Add one row by default
-addItemRow();
+
+    function selectCustomer(customer) {
+        customerId.value = customer.id;
+        customerName.value = customer.name;
+        customerPhone.value = customer.phone || '';
+        customerGstin.value = customer.gstin || '';
+        customerAddress.value = customer.address || '';
+        customerState.value = customer.state || '';
+        customerStateCode.value = customer.state_code || '';
+        customerSearchResults.style.display = 'none';
+        customerSearch.value = '';
+    }
+
+    // Save customer functionality
+    saveCustomerBtn.addEventListener('click', function() {
+        const customerData = {
+            name: customerName.value,
+            phone: customerPhone.value,
+            gstin: customerGstin.value,
+            address: customerAddress.value,
+            state: customerState.value,
+            state_code: customerStateCode.value
+        };
+
+        fetch('/api/customers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(customerData)
+        })
+        .then(response => response.json())
+        .then(customer => {
+            selectCustomer(customer);
+            alert('Customer saved successfully!');
+        })
+        .catch(error => {
+            alert('Error saving customer: ' + error.message);
+        });
+    });
+
+    // Payment method handling
+    const paymentMethod = document.getElementById('paymentMethod');
+    const upiField = document.getElementById('upiField');
+    const cardField = document.getElementById('cardField');
+
+    paymentMethod.addEventListener('change', function() {
+        upiField.style.display = this.value === 'UPI' ? 'block' : 'none';
+        cardField.style.display = this.value === 'Card' ? 'block' : 'none';
+    });
+
+    // Items table functionality
+    const itemsTable = document.getElementById('itemsTable');
+    const addRowBtn = document.getElementById('addRow');
+
+    function calculateAmount(row) {
+        const qty = parseFloat(row.querySelector('.qty').value) || 0;
+        const netWt = parseFloat(row.querySelector('.net-wt').value) || 0;
+        const rate = parseFloat(row.querySelector('.rate').value) || 0;
+        const amount = netWt * rate * qty;
+        row.querySelector('.amount').value = amount.toFixed(2);
+        updateTotal();
+    }
+
+    function updateTotal() {
+        let subtotal = 0;
+        document.querySelectorAll('.amount').forEach(input => {
+            subtotal += parseFloat(input.value) || 0;
+        });
+
+        const gst = parseFloat(document.getElementById('gst').value) || 0;
+        const makingCharges = parseFloat(document.getElementById('makingCharges').value) || 0;
+        const discount = parseFloat(document.getElementById('discount').value) || 0;
+
+        const gstAmount = (subtotal * gst) / 100;
+        const total = subtotal + gstAmount + makingCharges - discount;
+        document.getElementById('totalAmount').value = total.toFixed(2);
+    }
+
+    function addRow() {
+        const tbody = itemsTable.querySelector('tbody');
+        const newRow = tbody.querySelector('tr').cloneNode(true);
+        newRow.querySelectorAll('input').forEach(input => input.value = '');
+        tbody.appendChild(newRow);
+        setupRowListeners(newRow);
+    }
+
+    function setupRowListeners(row) {
+        row.querySelector('.remove-row').addEventListener('click', function() {
+            if (itemsTable.querySelectorAll('tr').length > 1) {
+                row.remove();
+                updateTotal();
+            }
+        });
+
+        ['qty', 'net-wt', 'rate'].forEach(className => {
+            row.querySelector(`.${className}`).addEventListener('input', () => calculateAmount(row));
+        });
+    }
+
+    addRowBtn.addEventListener('click', addRow);
+    setupRowListeners(itemsTable.querySelector('tr'));
+
+    // Preview functionality
+    const previewBtn = document.getElementById('previewBill');
+    const previewModal = new bootstrap.Modal(document.getElementById('previewModal'));
+    const previewContent = document.getElementById('previewContent');
+
+    previewBtn.addEventListener('click', function() {
+        const formData = new FormData(document.getElementById('billForm'));
+        fetch('/api/preview-bill', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(html => {
+            previewContent.innerHTML = html;
+            previewModal.show();
+        })
+        .catch(error => {
+            alert('Error generating preview: ' + error.message);
+        });
+    });
+
+    // Initialize calculations
+    updateTotal();
+});
 </script>
 {% endblock %} 
