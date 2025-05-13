@@ -385,6 +385,123 @@ def preview_bill():
     except Exception as e:
         return str(e), 400
 
+@app.route('/api/customers', methods=['GET', 'POST'])
+@login_required
+def handle_customers():
+    if request.method == 'GET':
+        customers = Customer.query.all()
+        return jsonify([{
+            'id': c.id,
+            'name': c.name,
+            'phone': c.phone,
+            'gstin': c.gstin,
+            'address': c.address,
+            'state': c.state,
+            'state_code': c.state_code
+        } for c in customers])
+    elif request.method == 'POST':
+        try:
+            data = request.get_json()
+            customer = Customer(
+                name=data.get('name'),
+                phone=data.get('phone'),
+                gstin=data.get('gstin'),
+                address=data.get('address'),
+                state=data.get('state'),
+                state_code=data.get('state_code')
+            )
+            db.session.add(customer)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Customer saved successfully',
+                'customer': {
+                    'id': customer.id,
+                    'name': customer.name,
+                    'phone': customer.phone,
+                    'gstin': customer.gstin,
+                    'address': customer.address,
+                    'state': customer.state,
+                    'state_code': customer.state_code
+                }
+            })
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': str(e)
+            }), 400
+
+@app.route('/api/create-bill', methods=['POST'])
+@login_required
+def create_bill():
+    try:
+        # Create bill
+        bill = Bill(
+            date=datetime.utcnow(),
+            customer_id=request.form.get('customer_id'),
+            customer_name=request.form.get('customer_name'),
+            phone=request.form.get('phone'),
+            gstin=request.form.get('gstin'),
+            address=request.form.get('address'),
+            state=request.form.get('state'),
+            state_code=request.form.get('state_code'),
+            payment_method=request.form.get('payment_method'),
+            upi=request.form.get('upi'),
+            card=request.form.get('card'),
+            gst=float(request.form.get('gst', 3)),
+            sgst=float(request.form.get('sgst', 1.5)),
+            cgst=float(request.form.get('cgst', 1.5)),
+            discount=float(request.form.get('discount', 0)),
+            making_charges=float(request.form.get('making_charges', 0))
+        )
+
+        # Create bill items
+        descriptions = request.form.getlist('description[]')
+        quantities = request.form.getlist('qty[]')
+        gross_weights = request.form.getlist('gross_wt[]')
+        net_weights = request.form.getlist('net_wt[]')
+        rates = request.form.getlist('rate[]')
+        amounts = request.form.getlist('amount[]')
+
+        bill.items = []
+        subtotal = 0
+        for i in range(len(descriptions)):
+            # Convert empty strings to 0 for numeric fields
+            qty = int(quantities[i]) if quantities[i] else 0
+            gross_wt = float(gross_weights[i]) if gross_weights[i] else 0
+            net_wt = float(net_weights[i]) if net_weights[i] else 0
+            rate = float(rates[i]) if rates[i] else 0
+            amount = float(amounts[i]) if amounts[i] else 0
+
+            item = BillItem(
+                description=descriptions[i],
+                qty=qty,
+                gross_wt=gross_wt,
+                net_wt=net_wt,
+                rate=rate,
+                amount=amount
+            )
+            bill.items.append(item)
+            subtotal += amount
+
+        # Calculate final total
+        gst_amount = (subtotal * bill.gst) / 100
+        bill.total = subtotal + gst_amount + bill.making_charges - bill.discount
+
+        # Save to database
+        db.session.add(bill)
+        db.session.commit()
+
+        # Generate PDF
+        pdf_path = generate_bill_pdf(bill)
+        bill.pdf_path = pdf_path
+        db.session.commit()
+
+        return jsonify({'success': True, 'message': 'Bill created successfully', 'bill_id': bill.id})
+    except Exception as e:
+        return jsonify({'success': False, 'message': str(e)}), 400
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

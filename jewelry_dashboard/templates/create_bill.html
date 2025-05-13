@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create New Bill</h2>
+    <form id="billForm" method="POST" action="{{ url_for('new_bill') }}">
+        <!-- Customer Information -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Customer Information</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="customer_select">Select Customer</label>
+                            <select id="customer_select" class="form-control" onchange="selectCustomer(this.value)">
+                                <option value="">Select Customer</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <button type="button" class="btn btn-primary mt-4" onclick="saveCustomer()">Save Customer</button>
+                    </div>
+                </div>
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="customer_name">Customer Name</label>
+                            <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="phone">Phone</label>
+                            <input type="text" class="form-control" id="phone" name="phone">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="gstin">GSTIN</label>
+                            <input type="text" class="form-control" id="gstin" name="gstin">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="address">Address</label>
+                            <textarea class="form-control" id="address" name="address" rows="2"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="state">State</label>
+                            <input type="text" class="form-control" id="state" name="state">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="state_code">State Code</label>
+                            <input type="text" class="form-control" id="state_code" name="state_code">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bill Items -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Bill Items</h4>
+            </div>
+            <div class="card-body">
+                <table class="table" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th>Qty</th>
+                            <th>Gross Wt</th>
+                            <th>Net Wt</th>
+                            <th>Rate</th>
+                            <th>Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><input type="text" class="form-control" name="description[]" required></td>
+                            <td><input type="number" class="form-control qty" name="qty[]" value="1" min="1" required onchange="calculateAmount(this)"></td>
+                            <td><input type="number" class="form-control gross-wt" name="gross_wt[]" step="0.001"></td>
+                            <td><input type="number" class="form-control net-wt" name="net_wt[]" step="0.001" onchange="calculateAmount(this)"></td>
+                            <td><input type="number" class="form-control rate" name="rate[]" step="0.01" onchange="calculateAmount(this)"></td>
+                            <td><input type="number" class="form-control amount" name="amount[]" readonly></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <button type="button" class="btn btn-secondary" onclick="addRow()">Add Item</button>
+            </div>
+        </div>
+
+        <!-- Bill Details -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Bill Details</h4>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="payment_method">Payment Method</label>
+                            <select class="form-control" id="payment_method" name="payment_method" onchange="togglePaymentFields()">
+                                <option value="Cash">Cash</option>
+                                <option value="UPI">UPI</option>
+                                <option value="Card">Card</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="upi_fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="upi">UPI ID</label>
+                            <input type="text" class="form-control" id="upi" name="upi">
+                        </div>
+                    </div>
+                    <div class="col-md-6" id="card_fields" style="display: none;">
+                        <div class="form-group">
+                            <label for="card">Card Number</label>
+                            <input type="text" class="form-control" id="card" name="card">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="gst">GST %</label>
+                            <input type="number" class="form-control" id="gst" name="gst" value="3" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="sgst">SGST %</label>
+                            <input type="number" class="form-control" id="sgst" name="sgst" value="1.5" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="cgst">CGST %</label>
+                            <input type="number" class="form-control" id="cgst" name="cgst" value="1.5" step="0.1">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-group">
+                            <label for="discount">Discount</label>
+                            <input type="number" class="form-control" id="discount" name="discount" value="0" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label for="making_charges">Making Charges</label>
+                            <input type="number" class="form-control" id="making_charges" name="making_charges" value="0" step="0.01">
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label>Total Amount</label>
+                            <h3 id="total">0.00</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <button type="button" class="btn btn-info" onclick="previewBill()">Preview Bill</button>
+            <button type="submit" class="btn btn-primary">Save & Generate Bill</button>
+        </div>
+    </form>
+</div>
+
+<!-- Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Bill Preview</h5>
+                <button type="button" class="close" onclick="closePreview()">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body" id="previewContent">
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Function to calculate amount for a row
+    function calculateAmount(input) {
+        // Get the row containing this input
+        const row = input.closest('tr');
+        
+        // Get the input values
+        const netWt = parseFloat(row.querySelector('.net-wt').value) || 0;
+        const rate = parseFloat(row.querySelector('.rate').value) || 0;
+        const qty = parseInt(row.querySelector('.qty').value) || 0;
+        
+        // Calculate amount
+        const amount = netWt * rate * qty;
+        
+        // Update amount field
+        row.querySelector('.amount').value = amount.toFixed(2);
+        
+        // Update total
+        updateTotal();
+    }
+
+    // Function to update the total
+    function updateTotal() {
+        let subtotal = 0;
+        
+        // Sum up all amounts
+        document.querySelectorAll('.amount').forEach(input => {
+            subtotal += parseFloat(input.value) || 0;
+        });
+        
+        // Get other values
+        const gst = parseFloat(document.getElementById('gst').value) || 0;
+        const makingCharges = parseFloat(document.getElementById('making_charges').value) || 0;
+        const discount = parseFloat(document.getElementById('discount').value) || 0;
+        
+        // Calculate final total
+        const gstAmount = (subtotal * gst) / 100;
+        const total = subtotal + gstAmount + makingCharges - discount;
+        
+        // Update total display
+        document.getElementById('total').textContent = total.toFixed(2);
+    }
+
+    // Function to add a new row
+    function addRow() {
+        const tbody = document.querySelector('#itemsTable tbody');
+        const newRow = document.createElement('tr');
+        newRow.innerHTML = `
+            <td><input type="text" class="form-control" name="description[]" required></td>
+            <td><input type="number" class="form-control qty" name="qty[]" value="1" min="1" required onchange="calculateAmount(this)"></td>
+            <td><input type="number" class="form-control gross-wt" name="gross_wt[]" step="0.001"></td>
+            <td><input type="number" class="form-control net-wt" name="net_wt[]" step="0.001" onchange="calculateAmount(this)"></td>
+            <td><input type="number" class="form-control rate" name="rate[]" step="0.01" onchange="calculateAmount(this)"></td>
+            <td><input type="number" class="form-control amount" name="amount[]" readonly></td>
+        `;
+        tbody.appendChild(newRow);
+    }
+
+    // Initialize when document is ready
+    document.addEventListener('DOMContentLoaded', function() {
+        // Load customers
+        loadCustomers();
+        
+        // Setup payment method toggle
+        togglePaymentFields();
+        
+        // Add event listeners for total calculation
+        document.getElementById('gst').addEventListener('change', updateTotal);
+        document.getElementById('making_charges').addEventListener('change', updateTotal);
+        document.getElementById('discount').addEventListener('change', updateTotal);
+        
+        // Setup initial row
+        const initialRow = document.querySelector('#itemsTable tbody tr');
+        if (initialRow) {
+            const inputs = initialRow.querySelectorAll('.net-wt, .rate, .qty');
+            inputs.forEach(input => {
+                input.setAttribute('onchange', 'calculateAmount(this)');
+            });
+        }
+    });
+
+    function saveCustomer() {
+        const formData = new FormData();
+        formData.append('name', document.getElementById('customer_name').value);
+        formData.append('phone', document.getElementById('phone').value);
+        formData.append('gstin', document.getElementById('gstin').value);
+        formData.append('address', document.getElementById('address').value);
+        formData.append('state', document.getElementById('state').value);
+        formData.append('state_code', document.getElementById('state_code').value);
+
+        fetch('/api/customers', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: document.getElementById('customer_name').value,
+                phone: document.getElementById('phone').value,
+                gstin: document.getElementById('gstin').value,
+                address: document.getElementById('address').value,
+                state: document.getElementById('state').value,
+                state_code: document.getElementById('state_code').value
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                alert('Customer saved successfully!');
+                loadCustomers();
+            } else {
+                alert('Error saving customer: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving customer. Please try again.');
+        });
+    }
+
+    function loadCustomers() {
+        fetch('/api/customers')
+            .then(response => response.json())
+            .then(customers => {
+                const select = document.getElementById('customer_select');
+                select.innerHTML = '<option value="">Select Customer</option>';
+                customers.forEach(customer => {
+                    const option = document.createElement('option');
+                    option.value = customer.id;
+                    option.textContent = `${customer.name} - ${customer.phone}`;
+                    select.appendChild(option);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading customers:', error);
+            });
+    }
+
+    function selectCustomer(customerId) {
+        if (!customerId) return;
+        
+        fetch(`/api/customers/${customerId}`)
+            .then(response => response.json())
+            .then(customer => {
+                document.getElementById('customer_name').value = customer.name;
+                document.getElementById('phone').value = customer.phone;
+                document.getElementById('gstin').value = customer.gstin;
+                document.getElementById('address').value = customer.address;
+                document.getElementById('state').value = customer.state;
+                document.getElementById('state_code').value = customer.state_code;
+            })
+            .catch(error => {
+                console.error('Error loading customer details:', error);
+            });
+    }
+
+    function togglePaymentFields() {
+        const method = document.getElementById('payment_method').value;
+        document.getElementById('upi_fields').style.display = method === 'UPI' ? 'block' : 'none';
+        document.getElementById('card_fields').style.display = method === 'Card' ? 'block' : 'none';
+    }
+
+    function previewBill() {
+        const form = document.getElementById('billForm');
+        const formData = new FormData(form);
+        
+        fetch('/api/preview-bill', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(html => {
+            const modal = document.getElementById('previewModal');
+            const content = document.getElementById('previewContent');
+            content.innerHTML = html;
+            modal.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error previewing bill:', error);
+            alert('Error previewing bill. Please try again.');
+        });
+    }
+
+    function closePreview() {
+        document.getElementById('previewModal').style.display = 'none';
+    }
+</script>
+{% endblock %} 
